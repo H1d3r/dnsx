@@ -5,10 +5,13 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/logrusorgru/aurora"
 	"github.com/projectdiscovery/goconfig"
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
+	"github.com/projectdiscovery/gologger/formatter"
 	"github.com/projectdiscovery/gologger/levels"
 	"github.com/projectdiscovery/utils/auth/pdcp"
 	"github.com/projectdiscovery/utils/env"
@@ -66,6 +69,7 @@ type Options struct {
 	resumeCfg             *ResumeCfg
 	HostsFile             bool
 	Stream                bool
+	Timeout               time.Duration
 	CAA                   bool
 	QueryAll              bool
 	ExcludeType           []string
@@ -177,6 +181,7 @@ func ParseOptions() *Options {
 		flagSet.IntVar(&options.TraceMaxRecursion, "trace-max-recursion", 255, "Max recursion for dns trace"),
 		flagSet.BoolVar(&options.Resume, "resume", false, "resume existing scan"),
 		flagSet.BoolVar(&options.Stream, "stream", false, "stream mode (wordlist, wildcard, stats and stop/resume will be disabled)"),
+		flagSet.DurationVar(&options.Timeout, "timeout", 3*time.Second, "maximum time to wait for a DNS query to complete"),
 	)
 
 	flagSet.CreateGroup("configs", "Configurations",
@@ -209,9 +214,6 @@ func ParseOptions() *Options {
 
 	options.configureQueryOptions()
 
-	// Read the inputs and configure the logging
-	options.configureOutput()
-
 	err := options.configureRcodes()
 	if err != nil {
 		gologger.Fatal().Msgf("%s\n", err)
@@ -236,6 +238,7 @@ func ParseOptions() *Options {
 		}
 	}
 
+	options.configureOutput()
 	showBanner()
 
 	if options.Version {
@@ -319,6 +322,10 @@ func (options *Options) configureOutput() {
 	// If the user desires verbose output, show verbose output
 	if options.Verbose {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelVerbose)
+	}
+	if options.NoColor {
+		updateutils.Aurora = aurora.NewAurora(false)
+		gologger.DefaultLogger.SetFormatter(formatter.NewCLI(true))
 	}
 	if options.Silent {
 		gologger.DefaultLogger.SetMaxLevel(levels.LevelSilent)

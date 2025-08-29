@@ -59,6 +59,7 @@ func New(options *Options) (*Runner, error) {
 	dnsxOptions.Hostsfile = options.HostsFile
 	dnsxOptions.OutputCDN = options.OutputCDN
 	dnsxOptions.Proxy = options.Proxy
+	dnsxOptions.Timeout = options.Timeout
 	if options.Resolvers != "" {
 		dnsxOptions.BaseResolvers = []string{}
 		// If it's a file load resolvers from it
@@ -240,8 +241,10 @@ func (r *Runner) prepareInput() error {
 			return err
 		}
 		// closes the file as we will read it multiple times to build the iterations
-		stdinFile.Close()
-		defer os.RemoveAll(r.tmpStdinFile)
+		_ = stdinFile.Close()
+		defer func() {
+			_ = os.RemoveAll(r.tmpStdinFile)
+		}()
 	}
 
 	if r.options.Domains != "" {
@@ -589,9 +592,13 @@ func (r *Runner) HandleOutput() {
 		if err != nil {
 			gologger.Fatal().Msgf("%s\n", err)
 		}
-		defer foutput.Close()
+		defer func() {
+			_ = foutput.Close()
+		}()
 		w = bufio.NewWriter(foutput)
-		defer w.Flush()
+		defer func() {
+			_ = w.Flush()
+		}()
 	}
 	for item := range r.outputchan {
 		if foutput != nil {
@@ -914,7 +921,7 @@ func (r *Runner) storeDNSData(dnsdata *retryabledns.DNSData) error {
 
 // Close running instance
 func (r *Runner) Close() {
-	r.hm.Close()
+	_ = r.hm.Close()
 }
 
 func (r *Runner) wildcardWorker() {
